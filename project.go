@@ -1,56 +1,73 @@
 package main
 
 import (
+	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
 )
 
-func showZenity(message string) {
-	cmd := exec.Command("bash", "-c", `zenity --warning --text="`+message+`"`)
-	_ = cmd.Run() // Ignore error if Zenity is closed/cancelled
+func zenity(message string) {
+	cmd := exec.Command("zenity", "--warning", fmt.Sprintf("--text=%s", message))
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("zenity error:", err)
+	}
 }
+
+func getChargingStatus() int {
+	status := exec.Command("cat", "/sys/class/power_supply/ACAD/online")
+	output, err := status.Output()
+	if err != nil {
+		fmt.Println("Charging status error:", err)
+		return -1
+	}
+	result := strings.TrimSpace(string(output))
+	val, err := strconv.Atoi(result)
+	if err != nil {
+		fmt.Println("Conversion error (charging status):", err)
+		return -1
+	}
+	return val
+}
+
+func getBatteryPercentage() int {
+	battery := exec.Command("bash", "-c", "upower -i $(upower -e | grep BAT) | grep -E 'percentage'")
+	output, err := battery.Output()
+	if err != nil {
+		fmt.Println("Battery percentage error:", err)
+		return -1
+	}
+	line := string(output)
+	percent := strings.TrimSpace(strings.Split(line, ":")[1])
+	percent = strings.TrimSuffix(percent, "%")
+	val, err := strconv.Atoi(strings.TrimSpace(percent))
+	if err != nil {
+		fmt.Println("Conversion error (battery percentage):", err)
+		return -1
+	}
+	return val
+}
+
 func main() {
-	getBat := `upower -e | grep BAT`
-	cmdBat, err := exec.Command("bash", "-c", getBat).Output()
-	if err != nil {
-		showZenity("Error finding battery device: " + err.Error())
-		return
-	}
-	batPath := strings.TrimSpace(string(cmdBat))
+	chargingStatus := getChargingStatus()
+	batteryPercentage := getBatteryPercentage()
 
-	// Query only percentage
-	query := `upower -i "` + batPath + `" | grep percentage`
-	outBytes, err := exec.Command("bash", "-c", query).Output()
-	if err != nil {
-		showZenity("Error querying battery info: " + err.Error())
+	if chargingStatus == -1 || batteryPercentage == -1 {
+		fmt.Println("Failed to get battery or charging status.")
 		return
 	}
 
-	line := strings.TrimSpace(string(outBytes))
-	pctStr := ""
-	if strings.HasPrefix(line, "percentage:") {
-		pctStr = strings.TrimSuffix(strings.Fields(line)[1], "%")
-	}
-
-	// Convert percentage to int
-	pct, err := strconv.Atoi(pctStr)
-	if err != nil {
-		showZenity("Error parsing battery percentage: " + err.Error())
-		return
-	}
-
-	// Zenity alerts based on percentage
-	if pct >= 95 && pct <= 100 {
-		showZenity("🔋 Battery is charged – consider unplugging.")
-	}
-
-	switch pct {
-	case 90:
-		showZenity("Battery is almost full (90%)")
-	case 20:
-		showZenity("Battery is at 20% – please plug in")
-	case 10:
-		showZenity("Immediately plug in – battery is below 10%")
+	if chargingStatus == 0 {
+		switch {
+		case batteryPercentage <= 5 && batteryPercentage <= 25:
+			zenity("Battery in critical stage, charge it.")
+		case batteryPercentage == 10:
+			zenity("Put battery on charge. Only 10% remaining.")
+		case batteryPercentage <= 20:
+			zenity("Battery low, please charge.")
+		}
+	} else if chargingStatus == 1 && (batteryPercentage >= 95 && batteryPercentage <= 99) {
+		zenity("Battery full, remove charger.")
 	}
 }
