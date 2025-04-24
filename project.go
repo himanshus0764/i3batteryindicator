@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func zenity(message string) {
@@ -50,24 +51,26 @@ func getBatteryPercentage() int {
 }
 
 func main() {
-	chargingStatus := getChargingStatus()
-	batteryPercentage := getBatteryPercentage()
+	for {
+		chargingStatus := getChargingStatus()
+		batteryPercentage := getBatteryPercentage()
 
-	if chargingStatus == -1 || batteryPercentage == -1 {
-		fmt.Println("Failed to get battery or charging status.")
-		return
-	}
-
-	if chargingStatus == 0 {
-		switch {
-		case batteryPercentage <= 5 && batteryPercentage <= 25:
-			zenity("Battery in critical stage, charge it.")
-		case batteryPercentage == 10:
-			zenity("Put battery on charge. Only 10% remaining.")
-		case batteryPercentage <= 20:
-			zenity("Battery low, please charge.")
+		if chargingStatus == -1 || batteryPercentage == -1 {
+			fmt.Println("Failed to get battery or charging status.")
+		} else {
+			if chargingStatus == 0 {
+				switch {
+				case batteryPercentage <= 5:
+					zenity("Battery in critical stage, charge it.")
+				case batteryPercentage == 10:
+					zenity("Put battery on charge. Only 10% remaining.")
+				case batteryPercentage <= 20:
+					zenity("Battery low, please charge.")
+				}
+			} else if chargingStatus == 1 && batteryPercentage >= 95 && batteryPercentage <= 99 {
+				zenity("Battery full, remove charger.")
+			}
 		}
-	} else if chargingStatus == 1 && (batteryPercentage >= 95 && batteryPercentage <= 99) {
-		zenity("Battery full, remove charger.")
+		time.Sleep(10 * time.Second)
 	}
 }
