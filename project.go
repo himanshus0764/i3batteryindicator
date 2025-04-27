@@ -68,7 +68,6 @@ func main() {
 				}
 			} else if chargingStatus == 1 && batteryPercentage >= 95 && batteryPercentage <= 99 && check == false {
 				zenity("Battery full, remove charger.")
-				check = true
 			}
 		}
 	}
