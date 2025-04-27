@@ -5,10 +5,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 )
-
-var check bool = false
 
 func zenity(message string) {
 	cmd := exec.Command("zenity", "--warning", fmt.Sprintf("--text=%s", message))
@@ -60,7 +57,7 @@ func main() {
 		if chargingStatus == -1 || batteryPercentage == -1 {
 			zenity("error to execute commant cause to may be wrong command string check and fix it according to you machine")
 		} else {
-			if chargingStatus == 0 && check == false {
+			if chargingStatus == 0 {
 				switch {
 				case batteryPercentage <= 5:
 					zenity("Battery in critical stage, charge it.")
@@ -71,9 +68,8 @@ func main() {
 				}
 			} else if chargingStatus == 1 && batteryPercentage >= 95 && batteryPercentage <= 99 && check == false {
 				zenity("Battery full, remove charger.")
+				check = true
 			}
-			check = true
 		}
-		time.Sleep(10 * time.Second)
 	}
 }
