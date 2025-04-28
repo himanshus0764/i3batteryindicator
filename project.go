@@ -66,7 +66,7 @@ func main() {
 				case batteryPercentage <= 20:
 					zenity("Battery low, please charge.")
 				}
-			} else if chargingStatus == 1 && batteryPercentage >= 95 && batteryPercentage <= 99 {
+			} else if chargingStatus == 1 && batteryPercentage >= 95 && batteryPercentage <= 100 {
 				zenity("Battery full, remove charger.")
 			}
 		}
