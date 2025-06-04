@@ -20,6 +20,54 @@ var (
 	myApp              fyne.App
 )
 
+func checkIsMute() (bool, error) {
+	out, err := exec.Command("pactl", "get-sink-mute", "@DEFAULT_SINK@").Output()
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(string(out), "yes"), nil
+}
+func charged() {
+	isMuted, err := checkIsMute()
+	if err != nil {
+		fmt.Println("Error checking mute status:", err)
+		return
+	}
+	var cmdStr string
+	if isMuted {
+		cmdStr = `pactl set-sink-mute @DEFAULT_SINK@ 0 && pactl set-sink-volume @DEFAULT_SINK@ 100% && paplay /usr/share/sounds/freedesktop/stereo/complete.oga && pactl set-sink-mute @DEFAULT_SINK@ 1`
+	} else {
+		cmdStr = `pactl set-sink-volume @DEFAULT_SINK@ 100% && paplay /usr/share/sounds/freedesktop/stereo/complete.oga`
+	}
+
+	cmd := exec.Command("bash", "-c", cmdStr)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Error running command:", err)
+		return
+	}
+}
+
+func uncharged() {
+	isMuted, err := checkIsMute()
+	if err != nil {
+		fmt.Println("Error checking mute status:", err)
+		return
+	}
+	var cmdStr string
+	if isMuted {
+		cmdStr = `pactl set-sink-mute @DEFAULT_SINK@ 0 && pactl set-sink-volume @DEFAULT_SINK@ 100% && paplay /usr/share/sounds/freedesktop/stereo/bell.oga   && pactl set-sink-mute @DEFAULT_SINK@ 1`
+	} else {
+		cmdStr = `pactl set-sink-volume @DEFAULT_SINK@ 100% && paplay /usr/share/sounds/freedesktop/stereo/bell.oga  `
+	}
+
+	cmd := exec.Command("bash", "-c", cmdStr)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Error running command:", err)
+		return
+	}
+}
 func sendNotification(message string) {
 	myApp.SendNotification(&fyne.Notification{
 		Title:   "Battery Status",
@@ -89,20 +137,24 @@ func batteryPollLoop() {
 			case level <= 5 && fivePercentAlert:
 				sendNotification("Battery critical (≤5%)! Please charge now.")
 				fivePercentAlert = false
+				uncharged()
 			case level == 10 && tenPercentAlert:
 				sendNotification("Battery low (10%) — plug in your charger.")
 				tenPercentAlert = false
+				uncharged()
 			case level <= 20 && twentyPercentAlert:
 				sendNotification("Battery low (≤20%).")
+				uncharged()
 				twentyPercentAlert = false
 			}
 		} else {
 			if level >= 95 || level == 100 && fullChargeAlert {
 				sendNotification(fmt.Sprintf("Battery sufficiently charged %d%%. You can unplug.", level))
+				charged()
 				fullChargeAlert = false
 			}
 		}
-		time.Sleep(100 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }
 func main() {
